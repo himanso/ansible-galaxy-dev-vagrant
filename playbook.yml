@@ -1,0 +1,81 @@
+---
+- hosts: all
+  become: yes
+  tasks:
+  - name: Install git
+    yum:
+      name: git
+      state: latest
+
+  - name: Setup Docker CE repo
+    yum_repository:
+      name: docker-ce
+      description: Docker Community Edition repo
+      baseurl: https://download.docker.com/linux/centos/7/$basearch/stable
+
+  - name: Install Docker CE
+    yum:
+      name: docker-ce
+      state: latest
+      disable_gpg_check: yes
+    notify:
+      - start and enable docker-ce daemon
+
+
+  #  14  sudo rpm --import https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-7
+  #  15  sudo yum install -y python-devel libffi-devel openssl-devel gcc python-pip redhat-rpm-config
+  #  16  pip install ansible
+  #  17  sudo pip install ansible
+#install pip
+  - name: Get EPEL repo and key imported. We setup EPEL repo after installing Docker CE Edition because the EPEL docker causes failure with ansible-container
+    yum_repository:
+      name: EPEL
+      description: EPEL repo
+      baseurl: https://dl.fedoraproject.org/pub/epel/7/x86_64/
+      gpgkey: https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-7
+
+  - name: Install python dependencies for Ansible
+    yum:
+      name: "{{ item }}"
+      state: latest
+    with_items:
+      - python-devel
+      - libffi-devel
+      - openssl-devel
+      - gcc
+      - python-pip
+      - redhat-rpm-config
+
+  - name: Update setuptools
+    pip:
+      name: setuptools
+      state: latest
+
+  - name: Update pip
+    pip:
+      name: pip
+      state: latest
+
+  - name: Install Ansible via pip
+    pip:
+      name: ansible
+      state: latest
+
+
+
+  - name: Install docker support for pip
+    pip:
+      name: docker
+
+  - name: Install ansible-container from source via pip
+    pip:
+      name: git+http://github.com/ansible/ansible-container#egg=ansible-container
+
+  - name: Pull down ansible galaxy bits from github
+    git:
+      repo: https://github.com/ansible/galaxy.git
+      dest: /srv/checkout/ansible-galaxy
+
+  handlers:
+    - name: start and enable docker-ce daemon
+      service: name=docker state=restarted enabled=yes
